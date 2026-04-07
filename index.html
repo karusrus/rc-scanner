@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solana RC Scanner</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ─────────────────────────────────────────────── */
+:root {
+  --text-xs:   clamp(0.75rem,  0.7rem  + 0.25vw, 0.875rem);
+  --text-sm:   clamp(0.875rem, 0.8rem  + 0.35vw, 1rem);
+  --text-base: clamp(1rem,     0.95rem + 0.25vw, 1.125rem);
+  --text-lg:   clamp(1.125rem, 1rem    + 0.75vw, 1.5rem);
+  --text-xl:   clamp(1.5rem,   1.2rem  + 1.25vw, 2.25rem);
+
+  --space-1:0.25rem; --space-2:0.5rem; --space-3:0.75rem; --space-4:1rem;
+  --space-5:1.25rem; --space-6:1.5rem; --space-8:2rem; --space-10:2.5rem;
+  --space-12:3rem;   --space-16:4rem;
+
+  --radius-sm:0.375rem; --radius-md:0.5rem; --radius-lg:0.75rem;
+  --radius-xl:1rem;     --radius-full:9999px;
+  --transition:180ms cubic-bezier(0.16,1,0.3,1);
+  --font-display:'Cabinet Grotesk','Helvetica Neue',sans-serif;
+  --font-body:'Satoshi','Inter',sans-serif;
+}
+
+[data-theme="dark"] {
+  --bg:          #0e0f11;
+  --surface:     #141518;
+  --surface-2:   #1a1c20;
+  --surface-3:   #21242a;
+  --border:      rgba(255,255,255,0.07);
+  --border-2:    rgba(255,255,255,0.12);
+  --text:        #e8e9ec;
+  --text-muted:  #7c7f8a;
+  --text-faint:  #44474f;
+  --primary:     #4f98a3;
+  --primary-glow:rgba(79,152,163,0.15);
+  --green:       #4ade80;
+  --green-bg:    rgba(74,222,128,0.08);
+  --red:         #f87171;
+  --red-bg:      rgba(248,113,113,0.08);
+  --gold:        #fbbf24;
+  --gold-bg:     rgba(251,191,36,0.08);
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:   0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg:   0 12px 40px rgba(0,0,0,0.6);
+}
+
+[data-theme="light"] {
+  --bg:          #f4f5f7;
+  --surface:     #ffffff;
+  --surface-2:   #f9fafb;
+  --surface-3:   #f1f3f5;
+  --border:      rgba(0,0,0,0.07);
+  --border-2:    rgba(0,0,0,0.12);
+  --text:        #1a1d24;
+  --text-muted:  #6b7280;
+  --text-faint:  #a0a6b1;
+  --primary:     #0c6e75;
+  --primary-glow:rgba(12,110,117,0.1);
+  --green:       #16a34a;
+  --green-bg:    rgba(22,163,74,0.07);
+  --red:         #dc2626;
+  --red-bg:      rgba(220,38,38,0.07);
+  --gold:        #d97706;
+  --gold-bg:     rgba(217,119,6,0.08);
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:   0 4px 16px rgba(0,0,0,0.1);
+  --shadow-lg:   0 12px 40px rgba(0,0,0,0.12);
+}
+
+/* ── BASE ───────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;scroll-behavior:smooth}
+body{
+  font-family:var(--font-body);
+  font-size:var(--text-base);
+  color:var(--text);
+  background:var(--bg);
+  min-height:100dvh;
+  line-height:1.5;
+}
+button{cursor:pointer;background:none;border:none;font:inherit;color:inherit}
+a,button,[role="button"]{transition:color var(--transition),background var(--transition),box-shadow var(--transition),border-color var(--transition)}
+:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:var(--radius-sm)}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.app{display:grid;grid-template-rows:auto auto auto 1fr;min-height:100dvh}
+
+/* ── HEADER ─────────────────────────────────────────────── */
+.header{
+  display:flex;align-items:center;gap:var(--space-4);
+  padding:var(--space-4) var(--space-6);
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+}
+.logo{display:flex;align-items:center;gap:var(--space-3);text-decoration:none;color:var(--text)}
+.logo-mark{width:32px;height:32px;flex-shrink:0}
+.logo-text{font-family:var(--font-display);font-size:var(--text-lg);font-weight:800;letter-spacing:-0.02em;color:var(--text)}
+.logo-text span{color:var(--primary)}
+.header-right{display:flex;align-items:center;gap:var(--space-3);margin-left:auto}
+.live-badge{
+  display:flex;align-items:center;gap:6px;
+  font-size:var(--text-xs);font-weight:500;
+  color:var(--green);background:var(--green-bg);
+  padding:4px 10px;border-radius:var(--radius-full);
+  border:1px solid rgba(74,222,128,0.2);
+}
+.live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.last-update{font-size:var(--text-xs);color:var(--text-muted)}
+.btn-icon{
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  border-radius:var(--radius-md);border:1px solid var(--border-2);
+  color:var(--text-muted);background:var(--surface-2);
+  transition:all var(--transition);
+}
+.btn-icon:hover{color:var(--text);border-color:var(--primary);background:var(--primary-glow)}
+.btn-icon svg{pointer-events:none}
+.btn-refresh.spinning svg{animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── KPI BAR ────────────────────────────────────────────── */
+.kpi-bar{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+  background:var(--border);border-bottom:1px solid var(--border);
+}
+.kpi{
+  background:var(--surface);padding:var(--space-4) var(--space-6);
+  display:flex;flex-direction:column;gap:4px;
+}
+.kpi-label{font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:500}
+.kpi-value{font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.kpi-sub{font-size:var(--text-xs);color:var(--text-muted)}
+
+/* ── TOOLBAR ────────────────────────────────────────────── */
+.toolbar{
+  display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;
+  padding:var(--space-4) var(--space-6);
+  background:var(--surface-2);border-bottom:1px solid var(--border);
+}
+.filter-group{display:flex;gap:4px;align-items:center}
+.filter-label{font-size:var(--text-xs);color:var(--text-muted);margin-right:4px;white-space:nowrap}
+.btn-filter{
+  font-size:var(--text-xs);font-weight:500;
+  padding:5px 12px;border-radius:var(--radius-full);
+  border:1px solid var(--border-2);color:var(--text-muted);
+  background:transparent;white-space:nowrap;
+  transition:all var(--transition);
+}
+.btn-filter:hover{color:var(--text);border-color:var(--primary)}
+.btn-filter.active{color:var(--primary);border-color:var(--primary);background:var(--primary-glow)}
+.toolbar-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-2)}
+.btn-view{
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  border-radius:var(--radius-md);color:var(--text-muted);
+  transition:all var(--transition);border:1px solid transparent;
+}
+.btn-view.active{color:var(--primary);border-color:var(--primary);background:var(--primary-glow)}
+.search-input{
+  background:var(--surface);border:1px solid var(--border-2);
+  border-radius:var(--radius-md);color:var(--text);
+  padding:6px 12px;font-size:var(--text-sm);font-family:var(--font-body);
+  width:180px;outline:none;
+  transition:border-color var(--transition);
+}
+.search-input::placeholder{color:var(--text-faint)}
+.search-input:focus{border-color:var(--primary)}
+
+/* ── MAIN ───────────────────────────────────────────────── */
+.main{padding:var(--space-6);overflow-y:auto}
+
+/* ── CARDS GRID ─────────────────────────────────────────── */
+.cards-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));
+  gap:var(--space-4);
+}
+
+.token-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:var(--space-5);
+  display:flex;flex-direction:column;gap:var(--space-4);
+  box-shadow:var(--shadow-sm);
+  transition:box-shadow var(--transition),border-color var(--transition);
+  cursor:default;
+}
+.token-card:hover{box-shadow:var(--shadow-md);border-color:var(--border-2)}
+
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3)}
+.token-info{display:flex;flex-direction:column;gap:4px}
+.token-avatar{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display);font-weight:800;font-size:14px;
+  flex-shrink:0;
+}
+.token-name-row{display:flex;align-items:center;gap:var(--space-2)}
+.token-name{font-family:var(--font-display);font-weight:700;font-size:var(--text-base);letter-spacing:-0.01em}
+.token-pair{font-size:var(--text-xs);color:var(--text-muted)}
+.dex-badge{
+  font-size:10px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;
+  padding:2px 7px;border-radius:var(--radius-full);
+  background:var(--surface-3);color:var(--text-muted);
+  border:1px solid var(--border);
+}
+
+/* RC SCORE */
+.rc-score{
+  display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;
+}
+.rc-label{font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted)}
+.rc-value{
+  font-family:var(--font-display);font-weight:800;font-size:var(--text-xl);
+  letter-spacing:-0.02em;font-variant-numeric:tabular-nums;
+}
+.rc-value.strong-buy{color:var(--green)}
+.rc-value.buy{color:#86efac}
+.rc-value.neutral{color:var(--gold)}
+.rc-value.avoid{color:var(--red)}
+.rc-tag{
+  font-size:10px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;
+  padding:2px 8px;border-radius:var(--radius-full);
+}
+.rc-tag.strong-buy{background:var(--green-bg);color:var(--green);border:1px solid rgba(74,222,128,0.25)}
+.rc-tag.buy{background:rgba(134,239,172,0.08);color:#86efac;border:1px solid rgba(134,239,172,0.2)}
+.rc-tag.neutral{background:var(--gold-bg);color:var(--gold);border:1px solid rgba(251,191,36,0.25)}
+.rc-tag.avoid{background:var(--red-bg);color:var(--red);border:1px solid rgba(248,113,113,0.25)}
+
+/* PRICE ROW */
+.price-row{display:flex;align-items:baseline;gap:var(--space-3);flex-wrap:wrap}
+.price{
+  font-family:var(--font-display);font-weight:700;font-size:var(--text-lg);
+  letter-spacing:-0.01em;font-variant-numeric:tabular-nums;
+}
+.price-changes{display:flex;gap:var(--space-2);flex-wrap:wrap}
+.change{
+  font-size:var(--text-xs);font-weight:600;
+  padding:2px 7px;border-radius:var(--radius-full);
+  font-variant-numeric:tabular-nums;
+}
+.change.up{background:var(--green-bg);color:var(--green)}
+.change.down{background:var(--red-bg);color:var(--red)}
+.change-label{font-size:9px;opacity:0.7;margin-right:1px}
+
+/* METRICS */
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2)}
+.metric{
+  background:var(--surface-2);border-radius:var(--radius-md);
+  padding:var(--space-2) var(--space-3);
+  display:flex;flex-direction:column;gap:2px;
+}
+.metric-label{font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);font-weight:600}
+.metric-value{font-size:var(--text-xs);font-weight:600;font-variant-numeric:tabular-nums;color:var(--text)}
+
+/* BUY/SELL BAR */
+.bs-row{display:flex;flex-direction:column;gap:6px}
+.bs-labels{display:flex;justify-content:space-between;font-size:var(--text-xs)}
+.bs-buy{color:var(--green);font-weight:600}
+.bs-sell{color:var(--red);font-weight:600}
+.bs-bar{height:4px;background:var(--surface-3);border-radius:var(--radius-full);overflow:hidden}
+.bs-bar-fill{height:100%;background:linear-gradient(90deg,var(--green),#86efac);border-radius:var(--radius-full);transition:width 0.5s ease}
+
+/* NEW BADGE */
+.new-badge{
+  font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
+  padding:1px 6px;border-radius:var(--radius-full);
+  background:rgba(79,152,163,0.15);color:var(--primary);
+  border:1px solid rgba(79,152,163,0.3);
+}
+
+/* ── TABLE VIEW ─────────────────────────────────────────── */
+.table-wrap{overflow-x:auto;border-radius:var(--radius-lg);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;background:var(--surface)}
+thead th{
+  padding:var(--space-3) var(--space-4);
+  font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;
+  color:var(--text-muted);text-align:left;white-space:nowrap;
+  background:var(--surface-2);border-bottom:1px solid var(--border);
+  cursor:pointer;user-select:none;
+}
+thead th:hover{color:var(--text)}
+thead th.sorted{color:var(--primary)}
+tbody tr{border-bottom:1px solid var(--border);transition:background var(--transition)}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+tbody td{
+  padding:var(--space-3) var(--space-4);
+  font-size:var(--text-sm);font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.td-name{font-weight:600;font-family:var(--font-display)}
+.td-pair{font-size:var(--text-xs);color:var(--text-muted)}
+
+/* ── LOADING ────────────────────────────────────────────── */
+.loading-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));
+  gap:var(--space-4);
+}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.skeleton{
+  background:linear-gradient(90deg,var(--surface-2) 25%,var(--surface-3) 50%,var(--surface-2) 75%);
+  background-size:200% 100%;animation:shimmer 1.5s ease-in-out infinite;
+  border-radius:var(--radius-sm);
+}
+.skeleton-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:var(--space-5);height:220px;
+  display:flex;flex-direction:column;gap:var(--space-3);
+}
+.skeleton-line{height:12px}
+.skeleton-line.w40{width:40%}
+.skeleton-line.w60{width:60%}
+.skeleton-line.w80{width:80%}
+.skeleton-line.w100{width:100%}
+.skeleton-line.h20{height:20px}
+.skeleton-line.h28{height:28px}
+
+/* ── ERROR ──────────────────────────────────────────────── */
+.error-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:var(--space-4);padding:var(--space-16);text-align:center;color:var(--text-muted);
+}
+.error-state svg{color:var(--red);opacity:0.5}
+.error-state h3{color:var(--text);font-family:var(--font-display);font-weight:700}
+.btn-retry{
+  padding:var(--space-3) var(--space-6);border-radius:var(--radius-md);
+  background:var(--primary);color:white;font-weight:600;font-size:var(--text-sm);
+  transition:background var(--transition);
+}
+.btn-retry:hover{background:var(--primary-hover,#3a7a85)}
+
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+@media(max-width:768px){
+  .header{padding:var(--space-3) var(--space-4)}
+  .kpi-bar{grid-template-columns:repeat(2,1fr)}
+  .kpi{padding:var(--space-3) var(--space-4)}
+  .toolbar{padding:var(--space-3) var(--space-4)}
+  .main{padding:var(--space-4)}
+  .last-update{display:none}
+}
+@media(max-width:480px){
+  .kpi-bar{grid-template-columns:repeat(2,1fr)}
+  .filter-label{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:0.01ms!important;transition-duration:0.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <!-- SVG Logo: stylized RC monogram with Solana waveform -->
+    <svg class="logo-mark" viewBox="0 0 32 32" fill="none" aria-label="RC Scanner logo">
+      <rect width="32" height="32" rx="8" fill="#0c6e75" opacity="0.15"/>
+      <path d="M7 10h12a3 3 0 010 6H7" stroke="#4f98a3" stroke-width="2" stroke-linecap="round"/>
+      <path d="M7 16l8 9" stroke="#4f98a3" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="24" cy="22" r="3" stroke="#4ade80" stroke-width="1.5"/>
+      <path d="M24 10v5" stroke="#4f98a3" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    </svg>
+    <span class="logo-text">RC <span>Scanner</span></span>
+  </div>
+
+  <div class="header-right">
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      LIVE · Solana
+    </div>
+    <span class="last-update" id="lastUpdate">—</span>
+    <button class="btn-icon btn-refresh" id="btnRefresh" aria-label="Refresh data" title="Refresh">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+    </button>
+    <button class="btn-icon" id="btnTheme" data-theme-toggle aria-label="Toggle theme" title="Toggle dark/light mode">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- KPI BAR -->
+<div class="kpi-bar" id="kpiBar">
+  <div class="kpi"><span class="kpi-label">Pools Loaded</span><span class="kpi-value" id="kpiPools">—</span><span class="kpi-sub">Solana trending</span></div>
+  <div class="kpi"><span class="kpi-label">Avg RC Score</span><span class="kpi-value num" id="kpiRC" style="color:var(--gold)">—</span><span class="kpi-sub">Buy threshold &gt;1.44</span></div>
+  <div class="kpi"><span class="kpi-label">Top Gainer 24h</span><span class="kpi-value num" id="kpiGainer" style="color:var(--green)">—</span><span class="kpi-sub" id="kpiGainerName">—</span></div>
+  <div class="kpi"><span class="kpi-label">Total Volume 24h</span><span class="kpi-value num" id="kpiVol">—</span><span class="kpi-sub">Across all pools</span></div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="filter-group">
+    <span class="filter-label">Sort</span>
+    <button class="btn-filter active" data-sort="rc">RC Score</button>
+    <button class="btn-filter" data-sort="vol">Volume</button>
+    <button class="btn-filter" data-sort="change24">Change 24h</button>
+    <button class="btn-filter" data-sort="new">Newest</button>
+  </div>
+  <div class="filter-group" style="margin-left:var(--space-4)">
+    <span class="filter-label">Filter</span>
+    <button class="btn-filter active" data-rc="all">All</button>
+    <button class="btn-filter" data-rc="buy">RC &gt; 1.44</button>
+    <button class="btn-filter" data-rc="avoid">RC &lt; 0.8</button>
+  </div>
+
+  <div class="toolbar-right">
+    <input class="search-input" id="searchInput" type="text" placeholder="Search token…" aria-label="Search token">
+    <button class="btn-view active" id="btnGrid" title="Grid view" aria-label="Grid view">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+        <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+      </svg>
+    </button>
+    <button class="btn-view" id="btnTable" title="Table view" aria-label="Table view">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<main class="main" id="main">
+  <div class="loading-grid" id="loadingGrid">
+    <!-- skeleton cards inserted by JS -->
+  </div>
+</main>
+</div>
+
+<script>
+/* ── STATE ──────────────────────────────────────────────── */
+let allPools = [];
+let sortBy = 'rc';
+let rcFilter = 'all';
+let viewMode = 'grid';
+let searchQuery = '';
+let refreshTimer = null;
+const AUTO_REFRESH_MS = 60000;
+
+/* ── UTILS ──────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const fmt = n => {
+  if(n == null || isNaN(n)) return '—';
+  if(Math.abs(n) >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if(Math.abs(n) >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+  if(Math.abs(n) >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+  return '$' + n.toFixed(2);
+};
+const fmtPrice = n => {
+  if(n == null || isNaN(n)) return '—';
+  if(n >= 1) return '$' + n.toFixed(4);
+  if(n >= 0.0001) return '$' + n.toFixed(6);
+  return '$' + n.toExponential(3);
+};
+const fmtPct = n => {
+  if(n == null || isNaN(n)) return '—';
+  const sign = n >= 0 ? '+' : '';
+  if(Math.abs(n) > 9999) return sign + (n/1000).toFixed(0) + 'K%';
+  return sign + n.toFixed(1) + '%';
+};
+const fmtNum = n => {
+  if(n == null || isNaN(n)) return '—';
+  if(n >= 1e9) return (n/1e9).toFixed(2) + 'B';
+  if(n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if(n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return n.toFixed(0);
+};
+const timeAgo = d => {
+  const diff = (Date.now() - new Date(d))/1000/3600;
+  if(diff < 1) return Math.round(diff*60) + 'm ago';
+  if(diff < 24) return Math.round(diff) + 'h ago';
+  return Math.round(diff/24) + 'd ago';
+};
+
+/* ── RUSLAN COEFFICIENT ─────────────────────────────────── */
+// RC = Buy Pressure × Volume Velocity × 10
+// Buy Pressure  = buys_h1 / (buys_h1 + sells_h1)   → [0,1]
+// Volume Velocity = vol_h1 / reserve                → normalized
+function calcRC(attrs) {
+  const txH1 = attrs.transactions?.h1 || {};
+  const buys = txH1.buys || 0;
+  const sells = txH1.sells || 0;
+  const total = buys + sells;
+  if(total < 5) return null; // not enough data
+
+  const buyPressure = buys / total;                         // 0–1
+  const volH1 = parseFloat(attrs.volume_usd?.h1 || 0);
+  const reserve = parseFloat(attrs.reserve_in_usd || 1);
+  const volVelocity = Math.min(volH1 / reserve, 5);        // capped at 5 → scale to ~1
+
+  const rc = buyPressure * volVelocity * 10;
+  return Math.round(rc * 100) / 100;
+}
+
+function rcClass(rc) {
+  if(rc == null) return 'neutral';
+  if(rc >= 2.5) return 'strong-buy';
+  if(rc >= 1.44) return 'buy';
+  if(rc >= 0.8) return 'neutral';
+  return 'avoid';
+}
+function rcTag(rc) {
+  if(rc == null) return '—';
+  if(rc >= 2.5) return 'STRONG BUY';
+  if(rc >= 1.44) return 'BUY';
+  if(rc >= 0.8) return 'NEUTRAL';
+  return 'AVOID';
+}
+
+/* ── AVATAR COLOR ───────────────────────────────────────── */
+const COLORS = ['#4f98a3','#4ade80','#fbbf24','#f472b6','#a78bfa','#60a5fa','#fb923c'];
+function avatarColor(name) {
+  let h = 0;
+  for(let i=0;i<name.length;i++) h = (h*31 + name.charCodeAt(i)) & 0xffff;
+  return COLORS[h % COLORS.length];
+}
+
+/* ── PARSE POOL ─────────────────────────────────────────── */
+function parsePool(d) {
+  const a = d.attributes;
+  const baseName = (a.name || '').split('/')[0].trim();
+  const pairName = a.name || '—';
+  const price = parseFloat(a.base_token_price_usd) || 0;
+  const pc = a.price_change_percentage || {};
+  const vol = a.volume_usd || {};
+  const tx = a.transactions || {};
+  const fdv = parseFloat(a.fdv_usd) || 0;
+  const reserve = parseFloat(a.reserve_in_usd) || 0;
+  const mcap = parseFloat(a.market_cap_usd) || 0;
+  const rc = calcRC(a);
+  const isNew = a.pool_created_at && (Date.now() - new Date(a.pool_created_at)) < 24*3600*1000;
+
+  return {
+    id: d.id,
+    name: baseName,
+    pair: pairName,
+    price, rc,
+    pc1h:  parseFloat(pc.h1  || 0),
+    pc6h:  parseFloat(pc.h6  || 0),
+    pc24h: parseFloat(pc.h24 || 0),
+    vol1h:  parseFloat(vol.h1  || 0),
+    vol24h: parseFloat(vol.h24 || 0),
+    fdv, reserve, mcap,
+    buysH1:  tx.h1?.buys  || 0,
+    sellsH1: tx.h1?.sells || 0,
+    buysH24: tx.h24?.buys  || 0,
+    sellsH24:tx.h24?.sells || 0,
+    createdAt: a.pool_created_at,
+    isNew,
+    address: a.address,
+  };
+}
+
+/* ── FETCH ──────────────────────────────────────────────── */
+async function fetchPools() {
+  const base = 'https://api.geckoterminal.com/api/v2';
+  const headers = { 'Accept':'application/json' };
+  const [r1, r2] = await Promise.all([
+    fetch(`${base}/networks/solana/trending_pools?page=1`, { headers }),
+    fetch(`${base}/networks/solana/trending_pools?page=2`, { headers }),
+  ]);
+  if(!r1.ok || !r2.ok) throw new Error('API error');
+  const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
+  return [...(d1.data||[]), ...(d2.data||[])].map(parsePool);
+}
+
+/* ── RENDER CARD ────────────────────────────────────────── */
+function renderCard(p) {
+  const rc = p.rc;
+  const cls = rcClass(rc);
+  const tag = rcTag(rc);
+  const color = avatarColor(p.name);
+  const initials = p.name.slice(0,3).toUpperCase();
+  const buySellTotal = p.buysH1 + p.sellsH1;
+  const buyPct = buySellTotal > 0 ? Math.round(p.buysH1/buySellTotal*100) : 50;
+  const sellPct = 100 - buyPct;
+  const isNew24 = p.isNew || (p.createdAt && (Date.now() - new Date(p.createdAt)) < 48*3600*1000);
+
+  return `
+<div class="token-card">
+  <div class="card-top">
+    <div class="token-name-row">
+      <div class="token-avatar" style="background:${color}22;color:${color}">${initials}</div>
+      <div class="token-info">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="token-name">${p.name}</span>
+          ${isNew24 ? '<span class="new-badge">NEW</span>' : ''}
+        </div>
+        <span class="token-pair">${p.pair}</span>
+      </div>
+    </div>
+    <div class="rc-score">
+      <span class="rc-label">RC Score</span>
+      <span class="rc-value ${cls} num">${rc != null ? rc.toFixed(2) : '—'}</span>
+      <span class="rc-tag ${cls}">${tag}</span>
+    </div>
+  </div>
+
+  <div class="price-row">
+    <span class="price num">${fmtPrice(p.price)}</span>
+    <div class="price-changes">
+      <span class="change ${p.pc1h>=0?'up':'down'}"><span class="change-label">1H</span>${fmtPct(p.pc1h)}</span>
+      <span class="change ${p.pc6h>=0?'up':'down'}"><span class="change-label">6H</span>${fmtPct(p.pc6h)}</span>
+      <span class="change ${p.pc24h>=0?'up':'down'}"><span class="change-label">24H</span>${fmtPct(p.pc24h)}</span>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric">
+      <span class="metric-label">Vol 24h</span>
+      <span class="metric-value">${fmt(p.vol24h)}</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Liquidity</span>
+      <span class="metric-value">${fmt(p.reserve)}</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">FDV</span>
+      <span class="metric-value">${fmt(p.fdv)}</span>
+    </div>
+  </div>
+
+  <div class="bs-row">
+    <div class="bs-labels">
+      <span class="bs-buy">▲ ${p.buysH1} buys (${buyPct}%)</span>
+      <span class="bs-sell">${p.sellsH1} sells ▼</span>
+    </div>
+    <div class="bs-bar">
+      <div class="bs-bar-fill" style="width:${buyPct}%"></div>
+    </div>
+  </div>
+</div>`;
+}
+
+/* ── RENDER TABLE ───────────────────────────────────────── */
+function renderTable(pools) {
+  const rows = pools.map(p => {
+    const rc = p.rc;
+    const cls = rcClass(rc);
+    const color = avatarColor(p.name);
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="token-avatar" style="background:${color}22;color:${color};width:28px;height:28px;font-size:11px">${p.name.slice(0,3).toUpperCase()}</div>
+          <div>
+            <div class="td-name">${p.name}</div>
+            <div class="td-pair">${p.pair}</div>
+          </div>
+        </div>
+      </td>
+      <td class="num">${fmtPrice(p.price)}</td>
+      <td class="num ${p.pc1h>=0?'':''}"><span class="change ${p.pc1h>=0?'up':'down'}">${fmtPct(p.pc1h)}</span></td>
+      <td class="num"><span class="change ${p.pc24h>=0?'up':'down'}">${fmtPct(p.pc24h)}</span></td>
+      <td class="num">${fmt(p.vol24h)}</td>
+      <td class="num">${fmt(p.reserve)}</td>
+      <td><span class="rc-value ${cls} num" style="font-size:var(--text-sm)">${rc != null ? rc.toFixed(2) : '—'}</span></td>
+      <td><span class="rc-tag ${cls}">${rcTag(rc)}</span></td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Token</th>
+        <th>Price</th>
+        <th>1H %</th>
+        <th>24H %</th>
+        <th>Vol 24h</th>
+        <th>Liquidity</th>
+        <th>RC Score</th>
+        <th>Signal</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+/* ── FILTER + SORT ──────────────────────────────────────── */
+function applyFilters(pools) {
+  let p = [...pools];
+
+  if(searchQuery) {
+    const q = searchQuery.toLowerCase();
+    p = p.filter(x => x.name.toLowerCase().includes(q) || x.pair.toLowerCase().includes(q));
+  }
+
+  if(rcFilter === 'buy')   p = p.filter(x => x.rc != null && x.rc >= 1.44);
+  if(rcFilter === 'avoid') p = p.filter(x => x.rc != null && x.rc < 0.8);
+
+  if(sortBy === 'rc')       p.sort((a,b) => (b.rc||0) - (a.rc||0));
+  if(sortBy === 'vol')      p.sort((a,b) => b.vol24h - a.vol24h);
+  if(sortBy === 'change24') p.sort((a,b) => b.pc24h - a.pc24h);
+  if(sortBy === 'new')      p.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  return p;
+}
+
+/* ── UPDATE KPIs ────────────────────────────────────────── */
+function updateKPIs(pools) {
+  $('kpiPools').textContent = pools.length;
+
+  const rcVals = pools.filter(p => p.rc != null).map(p => p.rc);
+  const avgRC = rcVals.length ? rcVals.reduce((a,b) => a+b, 0) / rcVals.length : null;
+  $('kpiRC').textContent = avgRC != null ? avgRC.toFixed(2) : '—';
+
+  const topGainer = [...pools].sort((a,b) => b.pc24h - a.pc24h)[0];
+  if(topGainer) {
+    $('kpiGainer').textContent = fmtPct(topGainer.pc24h);
+    $('kpiGainerName').textContent = topGainer.name;
+  }
+
+  const totalVol = pools.reduce((a,b) => a + b.vol24h, 0);
+  $('kpiVol').textContent = fmt(totalVol);
+}
+
+/* ── RENDER MAIN ────────────────────────────────────────── */
+function renderMain() {
+  const filtered = applyFilters(allPools);
+  const main = $('main');
+
+  if(filtered.length === 0) {
+    main.innerHTML = `<div class="error-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <h3>No pools match</h3>
+      <p>Try adjusting your filters or search query.</p>
+    </div>`;
+    return;
+  }
+
+  if(viewMode === 'grid') {
+    main.innerHTML = `<div class="cards-grid">${filtered.map(renderCard).join('')}</div>`;
+  } else {
+    main.innerHTML = renderTable(filtered);
+  }
+}
+
+/* ── SKELETON ───────────────────────────────────────────── */
+function showSkeleton() {
+  const grid = $('loadingGrid');
+  if(!grid) return;
+  const cards = Array.from({length:8}).map(() => `
+    <div class="skeleton-card">
+      <div style="display:flex;justify-content:space-between">
+        <div class="skeleton skeleton-line w40 h20"></div>
+        <div class="skeleton skeleton-line" style="width:60px;height:40px"></div>
+      </div>
+      <div class="skeleton skeleton-line w60 h20"></div>
+      <div class="skeleton skeleton-line w80"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        <div class="skeleton skeleton-line h20"></div>
+        <div class="skeleton skeleton-line h20"></div>
+        <div class="skeleton skeleton-line h20"></div>
+      </div>
+    </div>`).join('');
+  grid.innerHTML = cards;
+}
+
+/* ── LOAD DATA ──────────────────────────────────────────── */
+async function loadData() {
+  const btn = $('btnRefresh');
+  btn.classList.add('spinning');
+
+  try {
+    allPools = await fetchPools();
+    updateKPIs(allPools);
+    renderMain();
+    $('lastUpdate').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    // Remove skeleton if still present
+    const lg = $('loadingGrid');
+    if(lg) lg.remove();
+  } catch(e) {
+    $('main').innerHTML = `<div class="error-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+      </svg>
+      <h3>Failed to load data</h3>
+      <p>GeckoTerminal API may be unavailable. Check your connection.</p>
+      <button class="btn-retry" onclick="loadData()">Retry</button>
+    </div>`;
+  } finally {
+    btn.classList.remove('spinning');
+    scheduleRefresh();
+  }
+}
+
+function scheduleRefresh() {
+  if(refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(loadData, AUTO_REFRESH_MS);
+}
+
+/* ── EVENTS ─────────────────────────────────────────────── */
+$('btnRefresh').addEventListener('click', loadData);
+
+document.querySelectorAll('[data-sort]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-sort]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    sortBy = btn.dataset.sort;
+    renderMain();
+  });
+});
+
+document.querySelectorAll('[data-rc]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-rc]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    rcFilter = btn.dataset.rc;
+    renderMain();
+  });
+});
+
+$('searchInput').addEventListener('input', e => {
+  searchQuery = e.target.value.trim();
+  renderMain();
+});
+
+$('btnGrid').addEventListener('click', () => {
+  viewMode = 'grid';
+  $('btnGrid').classList.add('active');
+  $('btnTable').classList.remove('active');
+  renderMain();
+});
+
+$('btnTable').addEventListener('click', () => {
+  viewMode = 'table';
+  $('btnTable').classList.add('active');
+  $('btnGrid').classList.remove('active');
+  renderMain();
+});
+
+/* ── THEME TOGGLE ───────────────────────────────────────── */
+(function(){
+  const btn = $('btnTheme');
+  const root = document.documentElement;
+  let dark = true; // default dark
+  function updateIcon(isDark) {
+    btn.innerHTML = isDark
+      ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+      : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
+  }
+  updateIcon(dark);
+  btn.addEventListener('click', () => {
+    dark = !dark;
+    root.setAttribute('data-theme', dark ? 'dark' : 'light');
+    updateIcon(dark);
+  });
+})();
+
+/* ── INIT ───────────────────────────────────────────────── */
+showSkeleton();
+loadData();
+</script>
+</body>
+</html>
