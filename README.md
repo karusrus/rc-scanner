@@ -2,7 +2,7 @@
 
 **Live Solana token analytics dashboard powered by the Ruslan Coefficient Framework**
 
-🌐 **[Live Demo → ruslankarymov.github.io/rc-scanner](https://ruslankarymov.github.io/rc-scanner)**
+🌐 **[Live Demo → karusrus.github.io/rc-scanner](https://karusrus.github.io/rc-scanner)**
 
 ---
 
@@ -25,7 +25,7 @@ Volume Velocity = vol_h1 / reserve_in_usd
 | RC < 0.8 | 🔴 **AVOID** |
 
 > The 1.44 threshold was derived from bootstrapped cross-validation across 1,000+ trade iterations.  
-> See the full statistical framework: [Ruslan Coefficient Framework →](https://github.com/ruslankarymov/solana-trading-analytics)
+> See the full statistical framework: [Ruslan Coefficient Framework →](https://github.com/karusrus/solana-trading-analytics)
 
 ---
 
@@ -51,7 +51,7 @@ Volume Velocity = vol_h1 / reserve_in_usd
 
 ## Related Projects
 
-- 🧮 [Ruslan Coefficient Framework](https://github.com/ruslankarymov/solana-trading-analytics) — full Python statistical model with bootstrapped CV
+- 🧮 [Ruslan Coefficient Framework](https://github.com/karusrus/solana-trading-analytics) — full Python statistical model with bootstrapped CV
 
 ---
 
