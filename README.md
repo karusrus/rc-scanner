@@ -55,4 +55,4 @@ Volume Velocity = vol_h1 / reserve_in_usd
 
 ---
 
-*Built by [Ruslan Karymov](https://github.com/ruslankarymov) · Data & BI Analyst · Solana DeFi Analytics*
+*Built by [Ruslan Karymov](https://github.com/karusrus) · Data & BI Analyst · Solana DeFi Analytics*
